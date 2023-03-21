@@ -15,7 +15,9 @@ import axios from "axios";
 import "chartjs-adapter-moment";
 // import Spinner from "./component/Spinner";
 import Button from "./component/Button";
-
+import "react-date-range/dist/styles.css"; // main css file
+import "react-date-range/dist/theme/default.css"; // theme css file
+import { DateRangePicker } from "react-date-range";
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -44,18 +46,28 @@ export const options = {
       time: {
         unit: "day",
       },
+      title: {
+        display: true,
+        text: "time",
+      },
+    },
+    y: {
+      title: {
+        display: true,
+        text: "duration (minute)",
+      },
     },
   },
 };
 
 const convertDataFormat = (val: any, attr: string) => {
   if (val.timestamp) {
-    return { x: new Date(val.timestamp), y: val[attr] / 60 / 60 };
+    return { x: new Date(val.timestamp), y: val[attr] / 60 / 1000 };
   } else {
     const date = Date.parse(val._id);
 
     if (isNaN(date) === false) {
-      return { x: new Date(val._id), y: val[attr] / 60 / 60 };
+      return { x: new Date(val._id), y: val[attr] / 60 / 1000 };
     } else {
       const newDate = new Date();
       newDate.setFullYear(val._id.year);
@@ -70,7 +82,7 @@ const convertDataFormat = (val: any, attr: string) => {
       }
       // console.log(newDate, val._id);
 
-      return { x: newDate, y: val[attr] / 60 / 60 };
+      return { x: newDate, y: val[attr] / 60 / 1000 };
     }
   }
 };
@@ -110,10 +122,21 @@ export default function App() {
   const [filter, setfilter] = useState("day");
   const [modal, setmodal] = useState(false);
   const [duration, setduration] = useState(0);
+  const [limit, setlimit] = useState({
+    startDate: new Date(),
+    endDate: new Date(),
+    key: "selection",
+  });
+  const [showDatePicker, setshowDatePicker] = useState(false);
+
   const getDuration = () => {
-    axios.get(`http://localhost:8000/duration?filter=${filter}`).then(res => {
-      setdata(res.data);
-    });
+    axios
+      .get(
+        `http://localhost:8000/duration?filter=${filter}&start=${limit.startDate}&end=${limit.endDate}`
+      )
+      .then(res => {
+        setdata(res.data);
+      });
   };
   /* function to get datas */
   const getDataStatus = () => {
@@ -141,7 +164,7 @@ export default function App() {
   };
   const updateDuration = () => {
     axios
-      .post("http://localhost:8000/timer", { duration: duration })
+      .post("http://localhost:8000/duration", { duration: duration })
       .then(async () => {
         await getDataStatus();
         setmodal(false);
@@ -154,7 +177,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     getDuration();
-  }, [filter]);
+  }, [filter, limit]);
 
   // console.log(data);
 
@@ -173,8 +196,19 @@ export default function App() {
           >
             Set Duration
           </button>
+          <button
+            type="button"
+            className={
+              "text-white rounded-lg px-5 py-2.5 min-h-[50px] min-w-[120px] flex justify-center items-center bg-[#654F97] hover:bg-[#53417e] font-bold text-lg"
+            }
+            onClick={() => {
+              setshowDatePicker(true);
+            }}
+          >
+            Date Filter
+          </button>
           <select
-            id="countries"
+            id="filter"
             className="bg-[#654F97] border border-gray-300 text-white text-lg rounded-lg block p-2.5 w-28 h-[52px] font-bold outline-none"
             onChange={e => {
               setfilter(e.target.value);
@@ -185,6 +219,7 @@ export default function App() {
             <option value="minute">per minute</option>
             <option value="second">per second</option>
           </select>
+
           <Button
             action={() => {
               updateTimer(timer === 0 ? "on" : timer === 1 ? "off" : "on");
@@ -204,7 +239,31 @@ export default function App() {
         <div className="w-4/5 h-4/5">
           <Line options={options as any} data={getData(data)} />
         </div>
+        <p>Muhammad Bintang Pananjung - 13519004</p>
       </div>
+      <div
+        className={
+          "w-full h-full bg-[#654f9755] top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex justify-center items-center  " +
+          (showDatePicker ? "absolute" : "hidden")
+        }
+        onClick={e => {
+          setshowDatePicker(false);
+        }}
+      >
+        <div
+          onClick={e => {
+            e.stopPropagation();
+          }}
+        >
+          <DateRangePicker
+            ranges={[limit]}
+            onChange={e => {
+              setlimit(e.selection as any);
+            }}
+          />
+        </div>
+      </div>
+
       <div
         className={
           " w-full h-full bg-[#654f9755] top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex justify-center items-center " +
@@ -222,7 +281,7 @@ export default function App() {
         >
           <p className=" font-bold text-xl mb-5">Set Duration</p>
           <input
-            type="text"
+            type="number"
             id="duration"
             placeholder="duration (in ms)"
             className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lgblock p-2.5 outline-none w-full rounded-lg"
